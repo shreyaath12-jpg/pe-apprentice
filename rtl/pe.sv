@@ -47,32 +47,45 @@ module pe #(
 
   // TODO: weight promotion. Which register does the multiplier read?
 
-  always_comb begin
-    weight_active = '0;
+  always_ff @( posedge clk or posedge rst ) begin
+    if ( rst ) //if reset, clear active weight
+      weight_active <= '0;
+    else if ( pe_switch_in ) // if switch is active, move bg weight to active weight
+      weight_active <= weight_bg;
   end
 
   // TODO: weight staging. When does weight_bg capture pe_weight_in?
 
   always_ff @( posedge clk or posedge rst ) begin
-    if ( rst )
+    if ( rst ) //if reset, clear bg weight
       weight_bg <= '0;
-    else
-      weight_bg <= weight_bg;
+    else if ( pe_accept_w_in ) //transfer weight in to bg weight
+      weight_bg <= pe_weight_in;
   end
 
   // TODO: streaming datapath. Drive all five outputs.
 
   always_ff @( posedge clk or posedge rst ) begin
-    if ( rst ) begin
+    if ( rst ) begin //if reset, disable all
       pe_psum_out   <= '0;
       pe_weight_out <= '0;
       pe_input_out  <= '0;
       pe_valid_out  <= 1'b0;
       pe_switch_out <= 1'b0;
     end
-    else if ( !pe_enabled ) begin
+    else if ( !pe_enabled ) begin //if pe disabled, transfer weight, but disable other outputs
+      pe_psum_out   <= '0;
+      pe_input_out  <= '0;
+      pe_valid_out  <= 1'b0;
+      pe_switch_out <= 1'b0;
     end
     else begin
+      pe_psum_out   <= pe_valid_in ? mac_out : '0;  
+      pe_input_out  <= pe_input_in;              
+      pe_valid_out  <= pe_valid_in;
+      pe_switch_out <= pe_switch_in;
+      if ( pe_accept_w_in )
+        pe_weight_out <= pe_weight_in; 
     end
   end
 
